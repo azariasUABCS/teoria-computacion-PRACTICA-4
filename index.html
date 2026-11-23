@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evaluador AFD</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: Arial, sans-serif;
+      color: #222;
+      background: #7E8896;
+    }
+
+    main {
+      min-width: 870px;
+      max-width: 871px;
+      margin: 0 auto;
+      padding: 24px;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+    }
+
+    h1 {
+      margin-top: 0;
+    }
+
+    p {
+      line-height: 1.5;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 180px;
+      padding: 12px;
+      border: 1px solid #aaa;
+      border-radius: 6px;
+      font: 15px monospace;
+      resize: vertical;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+      margin: 12px 0;
+    }
+
+    button {
+      padding: 10px 16px;
+      border: 0;
+      border-radius: 6px;
+      color: white;
+      background: #2457a7;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #17427f;
+    }
+
+    #clear-button {
+      background: #555;
+    }
+
+    #status {
+      margin: 14px 0;
+      font-weight: bold;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+
+    th,
+    td {
+      padding: 10px;
+      border: 1px solid #1d1c1c;
+      text-align: left;
+    }
+
+    th {
+      background: #eaf0f8;
+    }
+
+    @media (max-width: 550px) {
+      body {
+        padding: 10px;
+      }
+
+      main {
+        padding: 16px;
+      }
+
+      .buttons {
+        flex-wrap: wrap;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <h1>Evaluador AFD</h1>
+    <p>Escribe o pega un texto. El programa buscará números naturales, reales, porcentajes y valores monetarios mediante
+      Autómatas Finitos Deterministas (AFD).</p>
+
+    <label for="input-string"><strong>Texto para analizar</strong></label>
+    <textarea id="input-string"
+      placeholder="Ejemplo: Compré 3 artículos por $125.50 y obtuve 10% de descuento."></textarea>
+    <p>Caracteres: <span id="character-count">0</span></p>
+
+    <div class="buttons">
+      <button id="verify-button" type="button">Verificar texto</button>
+      <button id="clear-button" type="button">Limpiar</button>
+    </div>
+
+    <p id="status" role="status">Esperando texto para analizar.</p>
+    <section id="results" hidden>
+      <h2>Resultados</h2>
+      <p id="match-count">0 coincidencias</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Línea</th>
+              <th>Texto encontrado</th>
+              <th>Tipo</th>
+            </tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- CÓDIGO NUEVO: Parser EXAR -->
+    <hr>
+    <h2>Parser EXAR</h2>
+    <p>Escribe expresiones aritméticas terminadas en punto y coma (;). El Parser revisa la sintaxis con un Autómata de Pila.</p>
+
+    <label for="parser-input"><strong>Expresiones a analizar</strong></label>
+    <textarea id="parser-input" placeholder="Ejemplo: (X1+B2);"></textarea>
+
+    <div class="buttons">
+      <button id="parser-button" type="button">Analizar</button>
+      <button id="parser-clear" type="button" style="background:#555">Limpiar</button>
+    </div>
+
+    <p id="parser-mensaje" role="status">Esperando expresiones para analizar.</p>
+  </main>
+
+  <script src="index.js"></script>
+</body>
+
+</html>
