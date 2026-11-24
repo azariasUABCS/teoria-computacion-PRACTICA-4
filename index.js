@@ -24,16 +24,6 @@ const tablaConstante = {
 };
 const estadosAceptacionConstante = [1, 3, 6];
 
-function ejecutarAFD(matriz, estadosAceptacion, cadenaEntrada) {
-  let estado = 0;
-  for (let i = 0; i < cadenaEntrada.length; i++) {
-    const fila = matriz[estado] || matriz["-1"];
-    const clave = Object.keys(fila).find(k => k.includes(cadenaEntrada[i]));
-    estado = fila[clave] ?? -1;
-  }
-  return estadosAceptacion.includes(estado);
-}
-
 // Catálogo de códigos léxicos y sintácticos (Sección 5.2)
 const mensajesError = {
   100: "Sin error",
@@ -80,33 +70,120 @@ const parserInput = document.getElementById("parser-input");
 const parserResultados = document.getElementById("parser-resultados");
 const parserTablaBody = document.getElementById("parser-tabla-body");
 
-function crearResultado(codigo, linea) {
-  const tipo = codigo < 200 ? 1 : 2;
-  const codigoCompleto = tipo + ":" + codigo;
-  const descripcion = mensajesError[codigo] + ".";
-  const numeroLinea = String(linea).padStart(2, "0");
+// 1. Módulo de Entrada
+function moduloEntrada() {
+  return parserInput.value;
+}
 
-  let mensaje;
-  if (codigo === 100 || codigo === 200) {
-    mensaje = codigoCompleto + " " + descripcion;
-  } else if (tipo === 1) {
-    mensaje = codigoCompleto + " Error en Línea " + numeroLinea + ": " + descripcion;
-  } else {
-    mensaje = codigoCompleto + " Error Línea " + numeroLinea + ". " + descripcion;
+// 2. Aviso cuando la entrada está vacía
+function mostrarAviso(texto) {
+  parserTablaBody.innerHTML = "";
+  const tr = document.createElement("tr");
+  const td = document.createElement("td");
+  td.colSpan = 5;
+  td.className = "fila-aviso";
+  td.textContent = texto;
+  tr.appendChild(td);
+  parserTablaBody.appendChild(tr);
+  parserResultados.hidden = false;
+}
+
+// 3. Módulo de Análisis: separa por fila y por ';', analiza cada expresión e invoca resultados o errores
+function moduloAnalisis(texto) {
+  const lineas = texto.split(/\r?\n/);
+  const resultadosPorFila = [];
+
+  lineas.forEach(function (linea, indice) {
+    if (linea.trim() !== "") {
+      const expresiones = separarExpresionesDeFila(linea);
+      expresiones.forEach(function (expresion) {
+        resultadosPorFila.push(analizarFila(expresion, indice + 1));
+      });
+    }
+  });
+
+  if (resultadosPorFila.length === 0) {
+    const err = crearResultado(203, 1);
+    moduloErrores(err.mensaje, [{
+      fila: err.fila,
+      expresion: "(vacío)",
+      tipo: err.tipo,
+      codigos: err.codigos,
+      codigo: err.codigo,
+      descripcion: err.descripcion,
+      mensaje: err.mensaje,
+      esError: true
+    }]);
+    return err.mensaje;
   }
 
+  const primerError = resultadosPorFila.find(r => r.esError);
+
+  if (!primerError) {
+    moduloResultados(resultadosPorFila);
+    return null;
+  }
+
+  moduloErrores(primerError.mensaje, resultadosPorFila);
+  return primerError.mensaje;
+}
+
+// 4. Separa múltiples expresiones en una misma fila usando ';' como delimitador y aplica trim()
+function separarExpresionesDeFila(linea) {
+  const expresiones = [];
+  let actual = "";
+
+  for (let i = 0; i < linea.length; i++) {
+    const c = linea[i];
+    actual += c;
+    if (c === ";") {
+      expresiones.push(actual.trim());
+      actual = "";
+    }
+  }
+
+  if (actual.trim() !== "") {
+    expresiones.push(actual.trim());
+  }
+
+  return expresiones;
+}
+
+// 5. Analiza una expresión individual de una fila y devuelve su resultado estructurado
+function analizarFila(textoExpresion, numeroLinea) {
+  const expresion = textoExpresion.trim();
+  const resultadoLexico = obtenerTokens(expresion, numeroLinea);
+  const error = resultadoLexico.error || analizarSintaxis(resultadoLexico.tokens, numeroLinea);
+
+  if (error) {
+    return {
+      fila: error.fila,
+      expresion: expresion,
+      tipo: error.tipo,
+      codigos: error.codigos,
+      codigo: error.codigo,
+      descripcion: error.descripcion,
+      mensaje: error.mensaje,
+      esError: true
+    };
+  }
+
+  const okLexico = crearResultado(100, numeroLinea);
+  const okSintactico = crearResultado(200, numeroLinea);
+
   return {
-    fila: numeroLinea,
-    tipo: String(tipo),
-    codigos: [String(codigo)],
-    codigo: codigoCompleto,
-    descripcion: descripcion,
-    mensaje: mensaje,
-    esError: codigo !== 100 && codigo !== 200
+    fila: okLexico.fila,
+    expresion: expresion,
+    tipo: "1 / 2",
+    codigos: ["100", "200"],
+    codigo: "1:100 / 2:200",
+    descripcion: okSintactico.descripcion,
+    mensaje: okLexico.mensaje + " | " + okSintactico.mensaje,
+    esError: false
   };
 }
 
-// Fase 1: Análisis léxico de una fila (tokenización + clasificación con AFD)
+// 6. Fase 1: Análisis léxico de una fila (tokenización + clasificación con AFD)
 function obtenerTokens(texto, numeroLinea = 1) {
   const tokens = [];
   let linea = numeroLinea;
@@ -168,7 +245,18 @@ function obtenerTokens(texto, numeroLinea = 1) {
   return { tokens: tokens };
 }
 
-// Fase 2: Análisis sintáctico mediante Autómata de Pila
+// 7. Evaluador AFD usado por la fase léxica
+function ejecutarAFD(matriz, estadosAceptacion, cadenaEntrada) {
+  let estado = 0;
+  for (let i = 0; i < cadenaEntrada.length; i++) {
+    const fila = matriz[estado] || matriz["-1"];
+    const clave = Object.keys(fila).find(k => k.includes(cadenaEntrada[i]));
+    estado = fila[clave] ?? -1;
+  }
+  return estadosAceptacion.includes(estado);
+}
+
+// 8. Fase 2: Análisis sintáctico mediante Autómata de Pila
 function analizarSintaxis(tokens, numeroLinea = 1) {
   if (tokens.length === 0) {
     return crearResultado(203, numeroLinea);
@@ -210,61 +298,44 @@ function analizarSintaxis(tokens, numeroLinea = 1) {
   return null;
 }
 
-// Separa múltiples expresiones en una misma fila usando ';' como delimitador y aplica trim()
-function separarExpresionesDeFila(linea) {
-  const expresiones = [];
-  let actual = "";
+// 9. Construye el objeto de resultado / error con formato de la Tabla 5.2
+function crearResultado(codigo, linea) {
+  const tipo = codigo < 200 ? 1 : 2;
+  const codigoCompleto = tipo + ":" + codigo;
+  const descripcion = mensajesError[codigo] + ".";
+  const numeroLinea = String(linea).padStart(2, "0");
 
-  for (let i = 0; i < linea.length; i++) {
-    const c = linea[i];
-    actual += c;
-    if (c === ";") {
-      expresiones.push(actual.trim());
-      actual = "";
-    }
+  let mensaje;
+  if (codigo === 100 || codigo === 200) {
+    mensaje = codigoCompleto + " " + descripcion;
+  } else if (tipo === 1) {
+    mensaje = codigoCompleto + " Error en Línea " + numeroLinea + ": " + descripcion;
+  } else {
+    mensaje = codigoCompleto + " Error Línea " + numeroLinea + ". " + descripcion;
   }
-
-  if (actual.trim() !== "") {
-    expresiones.push(actual.trim());
-  }
-
-  return expresiones;
-}
-
-// Analiza una expresión individual de una fila y devuelve su resultado estructurado
-function analizarFila(textoExpresion, numeroLinea) {
-  const expresion = textoExpresion.trim();
-  const resultadoLexico = obtenerTokens(expresion, numeroLinea);
-  const error = resultadoLexico.error || analizarSintaxis(resultadoLexico.tokens, numeroLinea);
-
-  if (error) {
-    return {
-      fila: error.fila,
-      expresion: expresion,
-      tipo: error.tipo,
-      codigos: error.codigos,
-      codigo: error.codigo,
-      descripcion: error.descripcion,
-      mensaje: error.mensaje,
-      esError: true
-    };
-  }
-
-  const okLexico = crearResultado(100, numeroLinea);
-  const okSintactico = crearResultado(200, numeroLinea);
 
   return {
-    fila: okLexico.fila,
-    expresion: expresion,
-    tipo: "1 / 2",
-    codigos: ["100", "200"],
-    codigo: "1:100 / 2:200",
-    descripcion: okSintactico.descripcion,
-    mensaje: okLexico.mensaje + " | " + okSintactico.mensaje,
-    esError: false
+    fila: numeroLinea,
+    tipo: String(tipo),
+    codigos: [String(codigo)],
+    codigo: codigoCompleto,
+    descripcion: descripcion,
+    mensaje: mensaje,
+    esError: codigo !== 100 && codigo !== 200
   };
 }
 
+// 10. Módulo de Resultados
+function moduloResultados(filas) {
+  mostrarTabla(filas);
+}
+
+// 11. Módulo de Errores
+function moduloErrores(mensaje, filas) {
+  mostrarTabla(filas);
+}
+
+// 12. Renderiza la tabla de resultados en el DOM
 function mostrarTabla(filas) {
   parserTablaBody.innerHTML = "";
 
@@ -307,73 +378,7 @@ function mostrarTabla(filas) {
   parserResultados.hidden = filas.length === 0;
 }
 
-function mostrarAviso(texto) {
-  parserTablaBody.innerHTML = "";
-  const tr = document.createElement("tr");
-  const td = document.createElement("td");
-  td.colSpan = 5;
-  td.className = "fila-aviso";
-  td.textContent = texto;
-  tr.appendChild(td);
-  parserTablaBody.appendChild(tr);
-  parserResultados.hidden = false;
-}
-
-// Módulo de Entrada
-function moduloEntrada() {
-  return parserInput.value;
-}
-
-// Módulo de Resultados
-function moduloResultados(filas) {
-  mostrarTabla(filas);
-}
-
-// Módulo de Errores
-function moduloErrores(mensaje, filas) {
-  mostrarTabla(filas);
-}
-
-// Módulo de Análisis: separa por fila y por ';', analiza cada expresión e invoca resultados o errores
-function moduloAnalisis(texto) {
-  const lineas = texto.split(/\r?\n/);
-  const resultadosPorFila = [];
-
-  lineas.forEach(function (linea, indice) {
-    if (linea.trim() !== "") {
-      const expresiones = separarExpresionesDeFila(linea);
-      expresiones.forEach(function (expresion) {
-        resultadosPorFila.push(analizarFila(expresion, indice + 1));
-      });
-    }
-  });
-
-  if (resultadosPorFila.length === 0) {
-    const err = crearResultado(203, 1);
-    moduloErrores(err.mensaje, [{
-      fila: err.fila,
-      expresion: "(vacío)",
-      tipo: err.tipo,
-      codigos: err.codigos,
-      codigo: err.codigo,
-      descripcion: err.descripcion,
-      mensaje: err.mensaje,
-      esError: true
-    }]);
-    return err.mensaje;
-  }
-
-  const primerError = resultadosPorFila.find(r => r.esError);
-
-  if (!primerError) {
-    moduloResultados(resultadosPorFila);
-    return null;
-  }
-
-  moduloErrores(primerError.mensaje, resultadosPorFila);
-  return primerError.mensaje;
-}
-
+// Eventos de la interfaz
 document.getElementById("parser-button").addEventListener("click", function () {
   const texto = moduloEntrada();
 
