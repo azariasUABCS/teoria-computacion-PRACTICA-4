@@ -1,64 +1,28 @@
-const input = document.getElementById("input-string");
-const characterCount = document.getElementById("character-count");
-const status = document.getElementById("status");
-const results = document.getElementById("results");
-const resultsBody = document.getElementById("results-body");
-const matchCount = document.getElementById("match-count");
+// Parser EXAR - Unidad 4: Análisis Sintáctico (AFD léxico + Autómata de Pila)
 
-const tablaNaturales = {
-  0: { "+": 1, "-": 1, "0123456789": 2, ",": -1 },
-  1: { "+": -1, "-": -1, "0123456789": 2, ",": -1 },
-  2: { "+": -1, "-": -1, "0123456789": 2, ",": 3 },
-  3: { "+": -1, "-": -1, "0123456789": 4, ",": -1 },
-  4: { "+": -1, "-": -1, "0123456789": 5, ",": -1 },
-  5: { "+": -1, "-": -1, "0123456789": 6, ",": -1 },
-  6: { "+": -1, "-": -1, "0123456789": -1, ",": 3 },
-  "-1": { "+": -1, "-": -1, "0123456789": -1, ",": -1 }
-};
-const estadosAceptacionNaturales = [2, 6];
+const letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const digitos = "0123456789";
 
-const tablaReales = {
-  0: { "-": 1, "+": 1, "0123456789": 2, ".": -1, ",": -1 },
-  1: { "-": -1, "+": -1, "0123456789": 2, ".": -1, ",": -1 },
-  2: { "-": -1, "+": -1, "0123456789": 2, ".": 3, ",": 5 },
-  3: { "-": -1, "+": -1, "0123456789": 4, ".": -1, ",": -1 },
-  4: { "-": -1, "+": -1, "0123456789": 4, ".": -1, ",": -1 },
-  5: { "-": -1, "+": -1, "0123456789": 6, ".": -1, ",": -1 },
-  6: { "-": -1, "+": -1, "0123456789": 7, ".": -1, ",": -1 },
-  7: { "-": -1, "+": -1, "0123456789": 8, ".": -1, ",": -1 },
-  8: { "-": -1, "+": -1, "0123456789": -1, ".": 3, ",": 5 },
-  "-1": { "-": -1, "+": -1, "0123456789": -1, ".": -1, ",": -1 }
+// AFD para identificadores: letra seguida de cero o más letras/dígitos
+const tablaIdentificador = {
+  0: { [letras]: 1 },
+  1: { [letras]: 1, [digitos]: 1 },
+  "-1": {}
 };
-const estadosAceptacionReales = [4];
+const estadosAceptacionIdentificador = [1];
 
-const tablaPorcentaje = {
-  0: { "-": 1, "+": 1, "0123456789": 2, ".": -1, ",": -1, "%": -1 },
-  1: { "-": -1, "+": -1, "0123456789": 2, ".": -1, ",": -1, "%": -1 },
-  2: { "-": -1, "+": -1, "0123456789": 2, ".": 8, ",": 4, "%": 3 },
-  3: { "-": -1, "+": -1, "0123456789": -1, ".": -1, ",": -1, "%": -1 },
-  4: { "-": -1, "+": -1, "0123456789": 5, ".": -1, ",": -1, "%": -1 },
-  5: { "-": -1, "+": -1, "0123456789": 6, ".": -1, ",": -1, "%": -1 },
-  6: { "-": -1, "+": -1, "0123456789": 7, ".": -1, ",": -1, "%": -1 },
-  7: { "-": -1, "+": -1, "0123456789": -1, ".": 8, ",": 4, "%": 3 },
-  8: { "-": -1, "+": -1, "0123456789": 9, ".": -1, ",": -1, "%": -1 },
-  9: { "-": -1, "+": -1, "0123456789": 9, ".": -1, ",": -1, "%": 3 },
-  "-1": { "-": -1, "+": -1, "0123456789": -1, ".": -1, ",": -1, "%": -1 }
+// AFD para constantes numéricas: enteros, decimales y notación científica (E/e con signo opcional)
+const tablaConstante = {
+  0: { [digitos]: 1 },
+  1: { [digitos]: 1, ".": 2, "Ee": 4 },
+  2: { [digitos]: 3 },
+  3: { [digitos]: 3, "Ee": 4 },
+  4: { "+-": 5, [digitos]: 6 },
+  5: { [digitos]: 6 },
+  6: { [digitos]: 6 },
+  "-1": {}
 };
-const estadosAceptacionPorcentaje = [3];
-
-const tablaDinero = {
-  0: { "$": 1, "0123456789": -1, ".": -1, ",": -1 },
-  1: { "$": -1, "0123456789": 2, ".": -1, ",": -1 },
-  2: { "$": -1, "0123456789": 2, ".": 3, ",": 5 },
-  3: { "$": -1, "0123456789": 4, ".": -1, ",": -1 },
-  4: { "$": -1, "0123456789": 4, ".": -1, ",": -1 },
-  5: { "$": -1, "0123456789": 6, ".": -1, ",": -1 },
-  6: { "$": -1, "0123456789": 7, ".": -1, ",": -1 },
-  7: { "$": -1, "0123456789": 8, ".": -1, ",": -1 },
-  8: { "$": -1, "0123456789": -1, ".": 3, ",": 5 },
-  "-1": { "$": -1, "0123456789": -1, ".": -1, ",": -1 }
-};
-const estadosAceptacionDinero = [2, 4, 8];
+const estadosAceptacionConstante = [1, 3, 6];
 
 function ejecutarAFD(matriz, estadosAceptacion, cadenaEntrada) {
   let estado = 0;
@@ -70,219 +34,82 @@ function ejecutarAFD(matriz, estadosAceptacion, cadenaEntrada) {
   return estadosAceptacion.includes(estado);
 }
 
-const automatas = [
-  { tipo: "Valor monetario", matriz: tablaDinero, estados: estadosAceptacionDinero },
-  { tipo: "Porcentaje", matriz: tablaPorcentaje, estados: estadosAceptacionPorcentaje },
-  { tipo: "Real", matriz: tablaReales, estados: estadosAceptacionReales },
-  { tipo: "Natural", matriz: tablaNaturales, estados: estadosAceptacionNaturales }
-];
-
-function clasificarToken(str) {
-  const aut = automatas.find(a => ejecutarAFD(a.matriz, a.estados, str));
-  return aut?.tipo ?? null;
-}
-
-function esEspacioBlanco(c) {
-  return c === " " || c === "\t" || c === "\n" || c === "\r";
-}
-
-function tieneDigito(str) {
-  return Array.from(str).some(c => c >= "0" && c <= "9");
-}
-
-input.addEventListener("input", function () {
-  characterCount.textContent = input.value.length;
-});
-
-function obtenerNumeroLinea(texto, indice, areaTexto) {
-  const estilo = getComputedStyle(areaTexto);
-  const espejo = document.createElement("div");
-  [
-    "font", "lineHeight", "letterSpacing", "wordSpacing",
-    "textAlign", "textIndent", "textTransform",
-    "paddingTop", "paddingRight", "paddingBottom",
-    "paddingLeft", "tabSize", "direction", "boxSizing"
-  ].forEach(function (prop) {
-    espejo.style[prop] = estilo[prop];
-  });
-
-  espejo.style.position = "fixed";
-  espejo.style.visibility = "hidden";
-  espejo.style.left = "-10000px";
-  espejo.style.top = "0";
-  espejo.style.width = areaTexto.clientWidth + "px";
-  espejo.style.height = "auto";
-  espejo.style.border = "0";
-  espejo.style.whiteSpace = "pre-wrap";
-  espejo.style.overflowWrap = "break-word";
-  espejo.style.wordBreak = estilo.wordBreak;
-
-  espejo.appendChild(document.createTextNode(texto.slice(0, indice)));
-
-  const marca = document.createElement("span");
-  marca.textContent = "\u200B";
-  espejo.appendChild(marca);
-
-  document.body.appendChild(espejo);
-
-  const posicion = marca.getBoundingClientRect();
-  const posicionInicial = espejo.getBoundingClientRect();
-
-  const altura = parseFloat(estilo.lineHeight) || (parseFloat(estilo.fontSize) * 1.2);
-  const linea = Math.round((posicion.top - posicionInicial.top) / altura);
-  espejo.remove();
-  return linea;
-}
-
-function analizarTexto(texto) {
-  const encontrados = [];
-  let i = 0;
-  const n = texto.length;
-
-  while (i < n) {
-    while (i < n && esEspacioBlanco(texto[i])) {
-      i++;
-    }
-
-    let inicioIdx = i;
-    while (i < n && !esEspacioBlanco(texto[i])) {
-      i++;
-    }
-    let finIdx = i;
-    let token = texto.slice(inicioIdx, finIdx);
-
-    while (token.length > 0 && (token[0] === "(" || token[0] === '"' || token[0] === "'")) {
-      token = token.slice(1);
-      inicioIdx++;
-    }
-
-    while (token.length > 0 && (token[token.length - 1] === ")" || token[token.length - 1] === '"' || token[token.length - 1] === "'")) {
-      token = token.slice(0, -1);
-      finIdx--;
-    }
-
-    while (token.length > 1 && (token[token.length - 1] === "." || token[token.length - 1] === ",")) {
-      token = token.slice(0, -1);
-      finIdx--;
-    }
-
-    while (token.length > 0 && token[token.length - 1] === " ") {
-      token = token.slice(0, -1);
-      finIdx--;
-    }
-
-    const tipo = tieneDigito(token) ? clasificarToken(token) : null;
-    tipo && encontrados.push({
-      start: inicioIdx,
-      end: finIdx,
-      text: token,
-      type: tipo,
-      line: obtenerNumeroLinea(texto, inicioIdx, input)
-    });
-  }
-
-  return encontrados;
-}
-
-function mostrarResultados(coincidencias) {
-  resultsBody.innerHTML = "";
-
-  if (coincidencias.length === 0) {
-    const fila = document.createElement("tr");
-    const celda = document.createElement("td");
-    celda.colSpan = 4;
-    celda.textContent = "No se encontraron números.";
-    fila.appendChild(celda);
-    resultsBody.appendChild(fila);
-    matchCount.textContent = "0 coincidencias";
-    results.hidden = false;
-    return;
-  }
-
-  coincidencias.forEach(function (elemento, indice) {
-    const fila = document.createElement("tr");
-
-    [indice + 1, elemento.line, elemento.text, elemento.type].forEach(function (valor) {
-      const celda = document.createElement("td");
-      celda.textContent = valor;
-      fila.appendChild(celda);
-    });
-
-    resultsBody.appendChild(fila);
-  });
-
-  const sufijo = coincidencias.length === 1 ? " coincidencia" : " coincidencias";
-  matchCount.textContent = coincidencias.length + sufijo;
-  results.hidden = false;
-}
-
-document.getElementById("verify-button").addEventListener("click", function () {
-  const texto = input.value.trim();
-
-  if (texto === "") {
-    status.textContent = "Escribe un texto antes de verificar.";
-    results.hidden = true;
-    return;
-  }
-
-  status.textContent = "Texto analizado correctamente.";
-  const coincidencias = analizarTexto(texto);
-  mostrarResultados(coincidencias);
-});
-
-document.getElementById("clear-button").addEventListener("click", function () {
-  input.value = "";
-  characterCount.textContent = "0";
-  status.textContent = "Esperando texto para analizar.";
-  resultsBody.innerHTML = "";
-  matchCount.textContent = "0 coincidencias";
-  results.hidden = true;
-  input.focus();
-});
-
-// CÓDIGO NUEVO: Parser EXAR (autómata de pila)
-const letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-
-const tablaIdentificador = {
-  0: { [letras]: 1 },
-  1: { [letras]: 1, "0123456789": 1 },
-  "-1": {}
-};
-const estadosAceptacionIdentificador = [1];
-
-const tablaConstante = {
-  0: { "0123456789": 1 },
-  1: { "0123456789": 1, ".": 2, "E": 4 },
-  2: { "0123456789": 3 },
-  3: { "0123456789": 3, "E": 4 },
-  4: { "0123456789": 5 },
-  5: { "0123456789": 5 },
-  "-1": {}
-};
-const estadosAceptacionConstante = [1, 3, 5];
-
+// Catálogo de códigos léxicos y sintácticos (Sección 5.2)
 const mensajesError = {
+  100: "Sin error",
   101: "Símbolo desconocido",
   102: "Elemento inválido",
+  200: "Sin error",
   201: "Falta delimitador",
   202: "Falta operador",
   203: "Falta identificador / constante"
 };
 
-const parserInput = document.getElementById("parser-input");
-const parserMensaje = document.getElementById("parser-mensaje");
-
-function crearError(codigo, linea) {
-  const numeroLinea = String(linea).padStart(2, "0");
-  if (codigo < 200) {
-    return "1:" + codigo + " Error en Línea " + numeroLinea + ": " + mensajesError[codigo] + ".";
+// Tabla de transiciones del Autómata de Pila: δ(estado, tipoToken, topePila)
+// Estados: q0 = espera operando o '(', q1 = espera operador, ')' o ';'
+// Alfabeto de pila: Z0 (fondo de pila), "("
+const tablaAP = {
+  q0: {
+    identificador: { "*": { estado: "q1", accion: "mantener" } },
+    constante: { "*": { estado: "q1", accion: "mantener" } },
+    abre: { "*": { estado: "q0", accion: "apilar" } },
+    cierra: {
+      Z0: { error: 201 },
+      "(": { error: 203 }
+    },
+    operador: { "*": { error: 203 } },
+    fin: { "*": { error: 203 } }
+  },
+  q1: {
+    operador: { "*": { estado: "q0", accion: "mantener" } },
+    cierra: {
+      "(": { estado: "q1", accion: "desapilar" },
+      Z0: { error: 201 }
+    },
+    fin: {
+      Z0: { estado: "q0", accion: "mantener" },
+      "(": { error: 201 }
+    },
+    abre: { "*": { error: 202 } },
+    identificador: { "*": { error: 202 } },
+    constante: { "*": { error: 202 } }
   }
-  return "2:" + codigo + " Error Línea " + numeroLinea + ". " + mensajesError[codigo] + ".";
+};
+
+const parserInput = document.getElementById("parser-input");
+const parserResultados = document.getElementById("parser-resultados");
+const parserTablaBody = document.getElementById("parser-tabla-body");
+
+function crearResultado(codigo, linea) {
+  const tipo = codigo < 200 ? 1 : 2;
+  const codigoCompleto = tipo + ":" + codigo;
+  const descripcion = mensajesError[codigo] + ".";
+  const numeroLinea = String(linea).padStart(2, "0");
+
+  let mensaje;
+  if (codigo === 100 || codigo === 200) {
+    mensaje = codigoCompleto + " " + descripcion;
+  } else if (tipo === 1) {
+    mensaje = codigoCompleto + " Error en Línea " + numeroLinea + ": " + descripcion;
+  } else {
+    mensaje = codigoCompleto + " Error Línea " + numeroLinea + ". " + descripcion;
+  }
+
+  return {
+    fila: numeroLinea,
+    tipo: String(tipo),
+    codigos: [String(codigo)],
+    codigo: codigoCompleto,
+    descripcion: descripcion,
+    mensaje: mensaje,
+    esError: codigo !== 100 && codigo !== 200
+  };
 }
 
-function obtenerTokens(texto) {
+// Fase 1: Análisis léxico de una fila (tokenización + clasificación con AFD)
+function obtenerTokens(texto, numeroLinea = 1) {
   const tokens = [];
-  let linea = 1;
+  let linea = numeroLinea;
   let i = 0;
 
   while (i < texto.length) {
@@ -307,111 +134,260 @@ function obtenerTokens(texto) {
       i++;
     } else if (/[A-Za-z0-9.]/.test(c)) {
       let palabra = "";
-      while (i < texto.length && /[A-Za-z0-9.]/.test(texto[i])) {
-        palabra += texto[i];
-        i++;
+      while (i < texto.length) {
+        const ch = texto[i];
+        if (/[A-Za-z0-9.]/.test(ch)) {
+          palabra += ch;
+          i++;
+        } else if (
+          (ch === "+" || ch === "-") &&
+          /^[0-9]+(\.[0-9]+)?[Ee]$/.test(palabra) &&
+          i + 1 < texto.length &&
+          /[0-9]/.test(texto[i + 1])
+        ) {
+          // Incluye el signo del exponente en notación científica (ej. 3.56E-45)
+          palabra += ch;
+          i++;
+        } else {
+          break;
+        }
       }
+
       if (ejecutarAFD(tablaIdentificador, estadosAceptacionIdentificador, palabra)) {
         tokens.push({ texto: palabra, tipo: "identificador", linea: linea });
       } else if (ejecutarAFD(tablaConstante, estadosAceptacionConstante, palabra)) {
         tokens.push({ texto: palabra, tipo: "constante", linea: linea });
       } else {
-        return { error: crearError(102, linea) };
+        return { error: crearResultado(102, linea) };
       }
     } else {
-      return { error: crearError(101, linea) };
+      return { error: crearResultado(101, linea) };
     }
   }
 
   return { tokens: tokens };
 }
 
-function analizarSintaxis(tokens) {
-  const pila = [];
-  let esperaOperando = true;
+// Fase 2: Análisis sintáctico mediante Autómata de Pila
+function analizarSintaxis(tokens, numeroLinea = 1) {
+  if (tokens.length === 0) {
+    return crearResultado(203, numeroLinea);
+  }
+
+  const pila = ["Z0"];
+  let estado = "q0";
 
   for (const t of tokens) {
-    if (esperaOperando) {
-      if (t.tipo === "identificador" || t.tipo === "constante") {
-        esperaOperando = false;
-      } else if (t.tipo === "abre") {
-        pila.push("(");
-      } else {
-        return crearError(203, t.linea);
-      }
-    } else {
-      if (t.tipo === "operador") {
-        esperaOperando = true;
-      } else if (t.tipo === "cierra") {
-        if (pila.length === 0) {
-          return crearError(201, t.linea);
-        }
-        pila.pop();
-      } else if (t.tipo === "fin") {
-        if (pila.length > 0) {
-          return crearError(201, t.linea);
-        }
-        esperaOperando = true;
-      } else {
-        return crearError(202, t.linea);
-      }
+    const tope = pila[pila.length - 1];
+    const transicionesToken = tablaAP[estado][t.tipo];
+    const transicion = transicionesToken[tope] || transicionesToken["*"];
+
+    if (transicion.error) {
+      return crearResultado(transicion.error, t.linea);
     }
+
+    if (transicion.accion === "apilar") {
+      pila.push("(");
+    } else if (transicion.accion === "desapilar") {
+      pila.pop();
+    }
+
+    estado = transicion.estado;
   }
 
   const ultimo = tokens[tokens.length - 1];
   if (ultimo.tipo !== "fin") {
-    if (esperaOperando) {
-      return crearError(203, ultimo.linea);
+    if (estado === "q0") {
+      return crearResultado(203, ultimo.linea);
     }
-    return crearError(201, ultimo.linea);
+    return crearResultado(201, ultimo.linea);
+  }
+
+  if (pila[pila.length - 1] !== "Z0") {
+    return crearResultado(201, ultimo.linea);
   }
 
   return null;
 }
 
+// Separa múltiples expresiones en una misma fila usando ';' como delimitador y aplica trim()
+function separarExpresionesDeFila(linea) {
+  const expresiones = [];
+  let actual = "";
+
+  for (let i = 0; i < linea.length; i++) {
+    const c = linea[i];
+    actual += c;
+    if (c === ";") {
+      expresiones.push(actual.trim());
+      actual = "";
+    }
+  }
+
+  if (actual.trim() !== "") {
+    expresiones.push(actual.trim());
+  }
+
+  return expresiones;
+}
+
+// Analiza una expresión individual de una fila y devuelve su resultado estructurado
+function analizarFila(textoExpresion, numeroLinea) {
+  const expresion = textoExpresion.trim();
+  const resultadoLexico = obtenerTokens(expresion, numeroLinea);
+  const error = resultadoLexico.error || analizarSintaxis(resultadoLexico.tokens, numeroLinea);
+
+  if (error) {
+    return {
+      fila: error.fila,
+      expresion: expresion,
+      tipo: error.tipo,
+      codigos: error.codigos,
+      codigo: error.codigo,
+      descripcion: error.descripcion,
+      mensaje: error.mensaje,
+      esError: true
+    };
+  }
+
+  const okLexico = crearResultado(100, numeroLinea);
+  const okSintactico = crearResultado(200, numeroLinea);
+
+  return {
+    fila: okLexico.fila,
+    expresion: expresion,
+    tipo: "1 / 2",
+    codigos: ["100", "200"],
+    codigo: "1:100 / 2:200",
+    descripcion: okSintactico.descripcion,
+    mensaje: okLexico.mensaje + " | " + okSintactico.mensaje,
+    esError: false
+  };
+}
+
+function mostrarTabla(filas) {
+  parserTablaBody.innerHTML = "";
+
+  filas.forEach(function (item) {
+    const tr = document.createElement("tr");
+    tr.className = item.esError ? "fila-error" : "fila-ok";
+
+    const tdFila = document.createElement("td");
+    tdFila.className = "col-fila";
+    tdFila.textContent = item.fila;
+
+    const tdExpresion = document.createElement("td");
+    tdExpresion.className = "col-expresion";
+    tdExpresion.textContent = item.expresion;
+
+    const tdTipo = document.createElement("td");
+    tdTipo.className = "col-tipo";
+    tdTipo.textContent = item.tipo;
+
+    const tdCodigo = document.createElement("td");
+    tdCodigo.className = "col-codigo";
+    item.codigos.forEach(function (cod) {
+      const badge = document.createElement("span");
+      badge.className = "codigo-badge";
+      badge.textContent = cod;
+      tdCodigo.appendChild(badge);
+    });
+
+    const tdDescripcion = document.createElement("td");
+    tdDescripcion.textContent = item.descripcion;
+
+    tr.appendChild(tdFila);
+    tr.appendChild(tdExpresion);
+    tr.appendChild(tdTipo);
+    tr.appendChild(tdCodigo);
+    tr.appendChild(tdDescripcion);
+    parserTablaBody.appendChild(tr);
+  });
+
+  parserResultados.hidden = filas.length === 0;
+}
+
+function mostrarAviso(texto) {
+  parserTablaBody.innerHTML = "";
+  const tr = document.createElement("tr");
+  const td = document.createElement("td");
+  td.colSpan = 5;
+  td.className = "fila-aviso";
+  td.textContent = texto;
+  tr.appendChild(td);
+  parserTablaBody.appendChild(tr);
+  parserResultados.hidden = false;
+}
+
+// Módulo de Entrada
 function moduloEntrada() {
   return parserInput.value;
 }
 
+// Módulo de Resultados
+function moduloResultados(filas) {
+  mostrarTabla(filas);
+}
+
+// Módulo de Errores
+function moduloErrores(mensaje, filas) {
+  mostrarTabla(filas);
+}
+
+// Módulo de Análisis: separa por fila y por ';', analiza cada expresión e invoca resultados o errores
 function moduloAnalisis(texto) {
-  const resultado = obtenerTokens(texto);
-  if (resultado.error) {
-    return resultado.error;
+  const lineas = texto.split(/\r?\n/);
+  const resultadosPorFila = [];
+
+  lineas.forEach(function (linea, indice) {
+    if (linea.trim() !== "") {
+      const expresiones = separarExpresionesDeFila(linea);
+      expresiones.forEach(function (expresion) {
+        resultadosPorFila.push(analizarFila(expresion, indice + 1));
+      });
+    }
+  });
+
+  if (resultadosPorFila.length === 0) {
+    const err = crearResultado(203, 1);
+    moduloErrores(err.mensaje, [{
+      fila: err.fila,
+      expresion: "(vacío)",
+      tipo: err.tipo,
+      codigos: err.codigos,
+      codigo: err.codigo,
+      descripcion: err.descripcion,
+      mensaje: err.mensaje,
+      esError: true
+    }]);
+    return err.mensaje;
   }
-  return analizarSintaxis(resultado.tokens);
-}
 
-function moduloResultados() {
-  parserMensaje.textContent = "1:100 Sin error.";
-  parserMensaje.style.color = "green";
-}
+  const primerError = resultadosPorFila.find(r => r.esError);
 
-function moduloErrores(mensaje) {
-  parserMensaje.textContent = mensaje;
-  parserMensaje.style.color = "red";
+  if (!primerError) {
+    moduloResultados(resultadosPorFila);
+    return null;
+  }
+
+  moduloErrores(primerError.mensaje, resultadosPorFila);
+  return primerError.mensaje;
 }
 
 document.getElementById("parser-button").addEventListener("click", function () {
   const texto = moduloEntrada();
 
   if (texto.trim() === "") {
-    parserMensaje.textContent = "Escribe una expresión antes de analizar.";
-    parserMensaje.style.color = "black";
+    mostrarAviso("Escribe una expresión antes de analizar.");
     return;
   }
 
-  const error = moduloAnalisis(texto);
-
-  if (error === null) {
-    moduloResultados();
-  } else {
-    moduloErrores(error);
-  }
+  moduloAnalisis(texto);
 });
 
 document.getElementById("parser-clear").addEventListener("click", function () {
   parserInput.value = "";
-  parserMensaje.textContent = "Esperando expresiones para analizar.";
-  parserMensaje.style.color = "black";
+  parserTablaBody.innerHTML = "";
+  parserResultados.hidden = true;
   parserInput.focus();
 });

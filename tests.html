@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tests - Parser EXAR (PDF Unidad 4)</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #f4f6f9;
+      color: #222;
+    }
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 24px;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+    }
+    h1 { margin-top: 0; }
+    .summary {
+      display: flex;
+      gap: 16px;
+      margin: 16px 0 24px;
+      flex-wrap: wrap;
+    }
+    .card {
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-weight: bold;
+      border: 1px solid #ddd;
+    }
+    .card.pass { background: #e8f7ec; color: #176430; border-color: #a9dfb7; }
+    .card.fail { background: #fdecec; color: #9c1c1c; border-color: #f3b5b5; }
+    h2 {
+      margin-top: 28px;
+      border-bottom: 2px solid #e5e9f0;
+      padding-bottom: 6px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid #d5dbe3;
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #eef3fa; }
+    code, pre {
+      font-family: Consolas, monospace;
+      font-size: 12.5px;
+      white-space: pre-wrap;
+      margin: 0;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: bold;
+      font-size: 12px;
+    }
+    .badge.pass { background: #d4f4dd; color: #145a2a; }
+    .badge.fail { background: #fbd5d5; color: #9b1c1c; }
+  </style>
+</head>
+
+<body>
+  <main>
+    <h1>Suite de Pruebas - Parser EXAR (Basada en PDF Unidad 4)</h1>
+    <p>Ejecuta automáticamente las pruebas directamente contra <code>index.js</code>, incluyendo la tabla de resultados por fila.</p>
+
+    <div class="summary" id="summary"></div>
+    <div id="report"></div>
+  </main>
+
+  <!-- Contenedor oculto con los elementos DOM que index.js espera al cargarse -->
+  <div hidden>
+    <textarea id="parser-input"></textarea>
+    <button id="parser-button" type="button"></button>
+    <button id="parser-clear" type="button"></button>
+    <section id="parser-resultados" hidden>
+      <table id="parser-tabla">
+        <tbody id="parser-tabla-body"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <script src="index.js"></script>
+  <script>
+    (function () {
+      const pInput = document.getElementById("parser-input");
+      const pBtn = document.getElementById("parser-button");
+      const pClear = document.getElementById("parser-clear");
+      const pResultados = document.getElementById("parser-resultados");
+      const pTablaBody = document.getElementById("parser-tabla-body");
+
+      function readTableRows() {
+        return Array.from(pTablaBody.querySelectorAll("tr"))
+          .filter(tr => tr.children.length === 5)
+          .map(tr => ({
+            fila: tr.children[0].textContent,
+            expresion: tr.children[1].textContent,
+            tipo: tr.children[2].textContent,
+            codigos: Array.from(tr.children[3].querySelectorAll(".codigo-badge")).map(b => b.textContent),
+            descripcion: tr.children[4].textContent
+          }));
+      }
+
+      function runUI(text) {
+        pInput.value = text;
+        const ret = text.trim() === "" ? null : moduloAnalisis(text);
+        if (text.trim() === "") {
+          pBtn.click();
+        }
+        return {
+          text: ret === null ? (text.trim() === "" ? pTablaBody.textContent : "1:100 Sin error. | 2:200 Sin error.") : ret,
+          hasError: ret !== null,
+          rows: readTableRows(),
+          hidden: pResultados.hidden
+        };
+      }
+
+      const baseLines = [
+        "(X1+B2);",
+        "(Y1+B3*C4)+D;",
+        "(((VAR2+X1)));",
+        "(PESO+(CARGO*DIF2));",
+        "((X2+45.78)*(CARGO/ABONO)-(PORC*12.55))-INT;",
+        "456.78*(12.34*3.56E45)+B2;"
+      ];
+
+      function withLine(idx1Based, replacement) {
+        const copy = baseLines.slice();
+        copy[idx1Based - 1] = replacement;
+        return copy.join("\n");
+      }
+
+      const suites = [
+        {
+          title: "1. Ejemplos oficiales del PDF (Sección 5.3)",
+          cases: [
+            {
+              name: "Ejemplo 5.3.1 - Todas las sentencias válidas (6 filas)",
+              input: baseLines.join("\n"),
+              expected: "1:100 Sin error. | 2:200 Sin error.",
+              expectedColor: "green",
+              expectedRows: 6
+            },
+            {
+              name: "Ejemplo 5.3.2 - Símbolo desconocido (&) en línea 04",
+              input: withLine(4, "(PESO+(CARGO*DIF2)); &"),
+              expected: "1:101 Error en Línea 04: Símbolo desconocido.",
+              expectedColor: "red",
+              expectedRows: 7
+            },
+            {
+              name: "Ejemplo 5.3.3 - Elemento inválido (3.56EA45) en línea 06",
+              input: withLine(6, "456.78*(12.34*3.56EA45)+B2;"),
+              expected: "1:102 Error en Línea 06: Elemento inválido.",
+              expectedColor: "red",
+              expectedRows: 6
+            },
+            {
+              name: "Ejemplo 5.3.4 - Falta delimitador en línea 03",
+              input: withLine(3, "(((VAR2+X1));"),
+              expected: "2:201 Error Línea 03. Falta delimitador.",
+              expectedColor: "red",
+              expectedRows: 6
+            },
+            {
+              name: "Ejemplo 5.3.5 - Falta operador en línea 05",
+              input: withLine(5, "((X2+45.78)*(CARGO/ABONO)(PORC*12.55))-INT;"),
+              expected: "2:202 Error Línea 05. Falta operador.",
+              expectedColor: "red",
+              expectedRows: 6
+            },
+            {
+              name: "Ejemplo 4.3.6 - Falta identificador / constante (+*) en línea 02",
+              input: withLine(2, "(Y1+B3*C4)+*D;"),
+              expected: "2:203 Error Línea 02. Falta identificador / constante.",
+              expectedColor: "red",
+              expectedRows: 6
+            },
+            {
+              name: "Ejemplo 4.3.7 - Falta identificador / constante ((*) en línea 06",
+              input: withLine(6, "456.78*(*3.56E45)+B2;"),
+              expected: "2:203 Error Línea 06. Falta identificador / constante.",
+              expectedColor: "red",
+              expectedRows: 6
+            }
+          ]
+        },
+        {
+          title: "2. Expresiones válidas adicionales",
+          cases: [
+            { name: "Identificador simple", input: "X;", expected: "1:100 Sin error. | 2:200 Sin error.", expectedColor: "green" },
+            { name: "Constante entera", input: "42;", expected: "1:100 Sin error. | 2:200 Sin error.", expectedColor: "green" },
+            { name: "Real y notación científica entera (3E5)", input: "3.14 + 3E5;", expected: "1:100 Sin error. | 2:200 Sin error.", expectedColor: "green" },
+            { name: "Notación científica con exponente negativo (3.56E-45)", input: "3.56E-45 + B2;", expected: "1:100 Sin error. | 2:200 Sin error.", expectedColor: "green" },
+            { name: "Notación científica con exponente positivo (3.56E+45)", input: "3.56E+45 + B2;", expected: "1:100 Sin error. | 2:200 Sin error.", expectedColor: "green" },
+            { name: "Notación científica con 'e' minúscula (3.56e45)", input: "3.56e45 + 2e-3;", expected: "1:100 Sin error. | 2:200 Sin error.", expectedColor: "green" },
+            { name: "Identificador 'E' seguido de resta (E-5;)", input: "E-5;", expected: "1:100 Sin error. | 2:200 Sin error.", expectedColor: "green" },
+            { name: "Múltiples sentencias en una misma línea (separadas en 3 filas de tabla)", input: "  A+B;   C*D;  (E/F);  ", expected: "1:100 Sin error. | 2:200 Sin error.", expectedColor: "green", expectedRows: 3 },
+            { name: "Identificadores en minúsculas y dígitos", input: "var1 + miVar2 * x0;", expected: "1:100 Sin error. | 2:200 Sin error.", expectedColor: "green" },
+            { name: "Espacios, tabuladores y líneas en blanco (preserva # de fila)", input: "  ( X1 \t +  B2 ) ; \r\n\r\n ( A - B ) ; ", expected: "1:100 Sin error. | 2:200 Sin error.", expectedColor: "green", expectedRows: 2 },
+            { name: "Paréntesis profundamente anidados", input: "((((((A+1))))));", expected: "1:100 Sin error. | 2:200 Sin error.", expectedColor: "green" }
+          ]
+        },
+        {
+          title: "3. Errores léxicos (1:101 y 1:102)",
+          cases: [
+            { name: "101 - Símbolo @", input: "A @ B;", expected: "1:101 Error en Línea 01: Símbolo desconocido." },
+            { name: "101 - Símbolo = (asignación)", input: "X = A + B;", expected: "1:101 Error en Línea 01: Símbolo desconocido." },
+            { name: "101 - Símbolo $ en línea 03", input: "A+B;\nC+D;\n$100+2;", expected: "1:101 Error en Línea 03: Símbolo desconocido.", expectedRows: 3 },
+            { name: "102 - Identificador iniciado con dígito (123ABC)", input: "123ABC + 1;", expected: "1:102 Error en Línea 01: Elemento inválido." },
+            { name: "102 - Doble punto decimal (12.3.4)", input: "12.3.4 + A;", expected: "1:102 Error en Línea 01: Elemento inválido." },
+            { name: "102 - Punto sin decimales (12.)", input: "12. + A;", expected: "1:102 Error en Línea 01: Elemento inválido." },
+            { name: "102 - Punto sin parte entera (.5)", input: ".5 + A;", expected: "1:102 Error en Línea 01: Elemento inválido." },
+            { name: "102 - Exponente incompleto (3.5E)", input: "3.5E + A;", expected: "1:102 Error en Línea 01: Elemento inválido." },
+            { name: "102 - Exponente con signo incompleto (3.5E-)", input: "3.5E- + A;", expected: "1:102 Error en Línea 01: Elemento inválido." },
+            { name: "102 - Identificador con punto (VAR.1)", input: "VAR.1 + 2;", expected: "1:102 Error en Línea 01: Elemento inválido." }
+          ]
+        },
+        {
+          title: "4. Errores sintácticos (2:201, 2:202 y 2:203)",
+          cases: [
+            { name: "201 - Paréntesis de cierre de más", input: "(X1+B2));", expected: "2:201 Error Línea 01. Falta delimitador." },
+            { name: "201 - Paréntesis de cierre al inicio sin abrir (); -> );", input: ");", expected: "2:201 Error Línea 01. Falta delimitador." },
+            { name: "201 - Falta ';' al final", input: "(X1+B2)", expected: "2:201 Error Línea 01. Falta delimitador." },
+            { name: "201 - Falta ';' en línea 01 seguido de línea 02 válida", input: "(X1+B2)\n(Y1+B3);", expected: "2:201 Error Línea 01. Falta delimitador.", expectedRows: 2 },
+            { name: "201 - Falta ';' en línea 02", input: "(X1+B2);\n(A+C)", expected: "2:201 Error Línea 02. Falta delimitador.", expectedRows: 2 },
+            { name: "202 - Dos operandos seguidos (A B;)", input: "A B;", expected: "2:202 Error Línea 01. Falta operador." },
+            { name: "202 - Identificador antes de '(' (A(B);)", input: "A(B);", expected: "2:202 Error Línea 01. Falta operador." },
+            { name: "202 - ')' antes de constante ((A)5;)", input: "(A)5;", expected: "2:202 Error Línea 01. Falta operador." },
+            { name: "203 - Paréntesis vacíos ()", input: "();", expected: "2:203 Error Línea 01. Falta identificador / constante." },
+            { name: "203 - Sentencia vacía (;)", input: ";", expected: "2:203 Error Línea 01. Falta identificador / constante." },
+            { name: "203 - Operador antes de ';' (A+;)", input: "A+;", expected: "2:203 Error Línea 01. Falta identificador / constante." },
+            { name: "203 - Operador antes de ')' ((A+);)", input: "(A+);", expected: "2:203 Error Línea 01. Falta identificador / constante." },
+            { name: "203 - Operador al final sin ';' (A+)", input: "A+", expected: "2:203 Error Línea 01. Falta identificador / constante." },
+            { name: "203 - Formato de línea >= 10 (Línea 10)", input: Array(9).fill("A+B;").join("\n") + "\nA+*B;", expected: "2:203 Error Línea 10. Falta identificador / constante.", expectedRows: 10 },
+            { name: "Errores en múltiples filas: reporta fila 01 primero y muestra todas en tabla", input: "(A+*B);\n(C+D); &", expected: "2:203 Error Línea 01. Falta identificador / constante.", expectedRows: 3 }
+          ]
+        }
+      ];
+
+      let strictPass = 0, strictFail = 0;
+      const report = document.getElementById("report");
+
+      suites.forEach(suite => {
+        const h2 = document.createElement("h2");
+        h2.textContent = suite.title;
+        report.appendChild(h2);
+
+        const table = document.createElement("table");
+        table.innerHTML = `
+          <thead>
+            <tr>
+              <th>Estado</th>
+              <th>Caso</th>
+              <th>Entrada</th>
+              <th>Esperado</th>
+              <th>Obtenido</th>
+              <th>Filas tabla</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        `;
+        const tbody = table.querySelector("tbody");
+
+        suite.cases.forEach(tc => {
+          const res = runUI(tc.input);
+          const expectedErr = tc.expectedColor === "red" ? true : (tc.expectedColor === "green" ? false : null);
+          const msgOk = res.text === tc.expected && (expectedErr === null || res.hasError === expectedErr);
+          const rowsOk = tc.expectedRows === undefined || res.rows.length === tc.expectedRows;
+          const ok = msgOk && rowsOk && !res.hidden;
+          ok ? strictPass++ : strictFail++;
+
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td><span class="badge ${ok ? "pass" : "fail"}">${ok ? "PASS" : "FAIL"}</span></td>
+            <td></td>
+            <td><pre></pre></td>
+            <td><code></code></td>
+            <td><code></code></td>
+            <td></td>
+          `;
+          tr.children[1].textContent = tc.name;
+          tr.children[2].firstChild.textContent = tc.input;
+          tr.children[3].firstChild.textContent = tc.expected;
+          tr.children[4].firstChild.textContent = res.text;
+          tr.children[5].textContent = res.rows.length + " fila(s)";
+          tbody.appendChild(tr);
+        });
+
+        report.appendChild(table);
+      });
+
+      // Pruebas específicas de la tabla por fila y robustez
+      const h2Rob = document.createElement("h2");
+      h2Rob.textContent = "5. Tabla por fila, robustez y módulos";
+      report.appendChild(h2Rob);
+
+      const robRows = [];
+
+      // Verificar contenido exacto de columnas (Tabla 5.2) con múltiples errores + líneas vacías
+      const multiRes = runUI("(X1+B2);\n\n(A+*B);\n(C+D); &");
+      const multiOk =
+        multiRes.rows.length === 4 &&
+        multiRes.rows[0].fila === "01" && multiRes.rows[0].expresion === "(X1+B2);" && multiRes.rows[0].tipo === "1 / 2" && multiRes.rows[0].codigos.join(",") === "100,200" && multiRes.rows[0].descripcion === "Sin error." &&
+        multiRes.rows[1].fila === "03" && multiRes.rows[1].expresion === "(A+*B);" && multiRes.rows[1].tipo === "2" && multiRes.rows[1].codigos.join(",") === "203" && multiRes.rows[1].descripcion === "Falta identificador / constante." &&
+        multiRes.rows[2].fila === "04" && multiRes.rows[2].expresion === "(C+D);" && multiRes.rows[2].tipo === "1 / 2" && multiRes.rows[2].codigos.join(",") === "100,200" && multiRes.rows[2].descripcion === "Sin error." &&
+        multiRes.rows[3].fila === "04" && multiRes.rows[3].expresion === "&" && multiRes.rows[3].tipo === "1" && multiRes.rows[3].codigos.join(",") === "101" && multiRes.rows[3].descripcion === "Símbolo desconocido.";
+      robRows.push({
+        name: "Columnas de tabla (Fila, Expresión, Tipo, Código, Descripción) según Tabla 5.2",
+        ok: multiOk,
+        detail: JSON.stringify(multiRes.rows)
+      });
+
+      // Verificar varias expresiones en una misma fila con espacios y errores mixtos
+      const sameRowRes = runUI("  (X1+B2);   (Y1+*D);   A+5  ");
+      const sameRowOk =
+        sameRowRes.rows.length === 3 &&
+        sameRowRes.rows[0].fila === "01" && sameRowRes.rows[0].expresion === "(X1+B2);" && sameRowRes.rows[0].codigos.join(",") === "100,200" &&
+        sameRowRes.rows[1].fila === "01" && sameRowRes.rows[1].expresion === "(Y1+*D);" && sameRowRes.rows[1].codigos.join(",") === "203" &&
+        sameRowRes.rows[2].fila === "01" && sameRowRes.rows[2].expresion === "A+5" && sameRowRes.rows[2].codigos.join(",") === "201";
+      robRows.push({
+        name: "Múltiples expresiones en la misma fila delimitadas por ';' y con trim()",
+        ok: sameRowOk,
+        detail: JSON.stringify(sameRowRes.rows)
+      });
+
+      const rEmpty = runUI("   ");
+      robRows.push({
+        name: "Entrada vacía desde UI muestra aviso en la tabla",
+        ok: rEmpty.text === "Escribe una expresión antes de analizar." && !rEmpty.hidden && rEmpty.rows.length === 0,
+        detail: `Aviso: "${rEmpty.text}"`
+      });
+
+      runUI("(A+B); &");
+      const rRecover = runUI("(A+B);");
+      robRows.push({
+        name: "Recuperación tras error sin recargar",
+        ok: rRecover.text === "1:100 Sin error. | 2:200 Sin error." && !rRecover.hasError && rRecover.rows.length === 1 && rRecover.rows[0].codigos.join(",") === "100,200",
+        detail: `Resultado posterior: "${rRecover.text}"`
+      });
+
+      pClear.click();
+      robRows.push({
+        name: "Botón Limpiar (#parser-clear) limpia y oculta la tabla",
+        ok: pInput.value === "" && pResultados.hidden && pTablaBody.children.length === 0,
+        detail: `Input vacío=${pInput.value === ""}, tabla oculta=${pResultados.hidden}`
+      });
+
+      let directCrash = false;
+      let directRet = null;
+      try {
+        directRet = moduloAnalisis("   ");
+      } catch (e) {
+        directCrash = true;
+        directRet = e.name + ": " + e.message;
+      }
+      robRows.push({
+        name: 'Llamada directa moduloAnalisis("   ") sin excepción',
+        ok: !directCrash && directRet === "2:203 Error Línea 01. Falta identificador / constante.",
+        detail: directCrash ? `Excepción: ${directRet}` : `Devolvió: "${directRet}"`
+      });
+
+      const robTable = document.createElement("table");
+      robTable.innerHTML = `
+        <thead><tr><th>Estado</th><th>Prueba</th><th>Detalle</th></tr></thead>
+        <tbody></tbody>
+      `;
+      robRows.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td><span class="badge ${r.ok ? "pass" : "fail"}">${r.ok ? "PASS" : "FAIL"}</span></td><td></td><td></td>`;
+        tr.children[1].textContent = r.name;
+        tr.children[2].textContent = r.detail;
+        robTable.querySelector("tbody").appendChild(tr);
+        r.ok ? strictPass++ : strictFail++;
+      });
+      report.appendChild(robTable);
+
+      const summary = document.getElementById("summary");
+      summary.innerHTML = `
+        <div class="card pass">Pruebas aprobadas: ${strictPass} / ${strictPass + strictFail}</div>
+        <div class="card ${strictFail ? "fail" : "pass"}">Fallos: ${strictFail}</div>
+      `;
+    })();
+  </script>
+</body>
+
+</html>
