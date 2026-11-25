@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Evaluador AFD</title>
+  <title>Parser EXAR</title>
   <style>
     * {
       box-sizing: border-box;
@@ -65,34 +65,33 @@
       background: #17427f;
     }
 
-    #clear-button {
+    #parser-clear {
       background: #555;
     }
 
-    #status {
+    #parser-mensaje {
       margin: 14px 0;
       font-weight: bold;
     }
 
-    .table-wrap {
-      overflow-x: auto;
+    #parser-resultados {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 10px;
     }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 12px;
+    .resultado-item.ok {
+      color: green;
     }
 
-    th,
-    td {
-      padding: 10px;
-      border: 1px solid #1d1c1c;
-      text-align: left;
+    .resultado-item.error {
+      color: red;
     }
 
-    th {
-      background: #eaf0f8;
+    .resultado-expresion {
+      color: #222;
+      font-weight: bold;
     }
 
     @media (max-width: 550px) {
@@ -113,42 +112,7 @@
 
 <body>
   <main>
-    <h1>Evaluador AFD</h1>
-    <p>Escribe o pega un texto. El programa buscará números naturales, reales, porcentajes y valores monetarios mediante
-      Autómatas Finitos Deterministas (AFD).</p>
-
-    <label for="input-string"><strong>Texto para analizar</strong></label>
-    <textarea id="input-string"
-      placeholder="Ejemplo: Compré 3 artículos por $125.50 y obtuve 10% de descuento."></textarea>
-    <p>Caracteres: <span id="character-count">0</span></p>
-
-    <div class="buttons">
-      <button id="verify-button" type="button">Verificar texto</button>
-      <button id="clear-button" type="button">Limpiar</button>
-    </div>
-
-    <p id="status" role="status">Esperando texto para analizar.</p>
-    <section id="results" hidden>
-      <h2>Resultados</h2>
-      <p id="match-count">0 coincidencias</p>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Línea</th>
-              <th>Texto encontrado</th>
-              <th>Tipo</th>
-            </tr>
-          </thead>
-          <tbody id="results-body"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- CÓDIGO NUEVO: Parser EXAR -->
-    <hr>
-    <h2>Parser EXAR</h2>
+    <h1>Parser EXAR</h1>
     <p>Escribe expresiones aritméticas terminadas en punto y coma (;). El Parser revisa la sintaxis con un Autómata de Pila.</p>
 
     <label for="parser-input"><strong>Expresiones a analizar</strong></label>
@@ -156,10 +120,11 @@
 
     <div class="buttons">
       <button id="parser-button" type="button">Analizar</button>
-      <button id="parser-clear" type="button" style="background:#555">Limpiar</button>
+      <button id="parser-clear" type="button">Limpiar</button>
     </div>
 
     <p id="parser-mensaje" role="status">Esperando expresiones para analizar.</p>
+    <div id="parser-resultados"></div>
   </main>
 
   <script src="index.js"></script>

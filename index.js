@@ -1,246 +1,3 @@
-const input = document.getElementById("input-string");
-const characterCount = document.getElementById("character-count");
-const status = document.getElementById("status");
-const results = document.getElementById("results");
-const resultsBody = document.getElementById("results-body");
-const matchCount = document.getElementById("match-count");
-
-const tablaNaturales = {
-  0: { "+": 1, "-": 1, "0123456789": 2, ",": -1 },
-  1: { "+": -1, "-": -1, "0123456789": 2, ",": -1 },
-  2: { "+": -1, "-": -1, "0123456789": 2, ",": 3 },
-  3: { "+": -1, "-": -1, "0123456789": 4, ",": -1 },
-  4: { "+": -1, "-": -1, "0123456789": 5, ",": -1 },
-  5: { "+": -1, "-": -1, "0123456789": 6, ",": -1 },
-  6: { "+": -1, "-": -1, "0123456789": -1, ",": 3 },
-  "-1": { "+": -1, "-": -1, "0123456789": -1, ",": -1 }
-};
-const estadosAceptacionNaturales = [2, 6];
-
-const tablaReales = {
-  0: { "-": 1, "+": 1, "0123456789": 2, ".": -1, ",": -1 },
-  1: { "-": -1, "+": -1, "0123456789": 2, ".": -1, ",": -1 },
-  2: { "-": -1, "+": -1, "0123456789": 2, ".": 3, ",": 5 },
-  3: { "-": -1, "+": -1, "0123456789": 4, ".": -1, ",": -1 },
-  4: { "-": -1, "+": -1, "0123456789": 4, ".": -1, ",": -1 },
-  5: { "-": -1, "+": -1, "0123456789": 6, ".": -1, ",": -1 },
-  6: { "-": -1, "+": -1, "0123456789": 7, ".": -1, ",": -1 },
-  7: { "-": -1, "+": -1, "0123456789": 8, ".": -1, ",": -1 },
-  8: { "-": -1, "+": -1, "0123456789": -1, ".": 3, ",": 5 },
-  "-1": { "-": -1, "+": -1, "0123456789": -1, ".": -1, ",": -1 }
-};
-const estadosAceptacionReales = [4];
-
-const tablaPorcentaje = {
-  0: { "-": 1, "+": 1, "0123456789": 2, ".": -1, ",": -1, "%": -1 },
-  1: { "-": -1, "+": -1, "0123456789": 2, ".": -1, ",": -1, "%": -1 },
-  2: { "-": -1, "+": -1, "0123456789": 2, ".": 8, ",": 4, "%": 3 },
-  3: { "-": -1, "+": -1, "0123456789": -1, ".": -1, ",": -1, "%": -1 },
-  4: { "-": -1, "+": -1, "0123456789": 5, ".": -1, ",": -1, "%": -1 },
-  5: { "-": -1, "+": -1, "0123456789": 6, ".": -1, ",": -1, "%": -1 },
-  6: { "-": -1, "+": -1, "0123456789": 7, ".": -1, ",": -1, "%": -1 },
-  7: { "-": -1, "+": -1, "0123456789": -1, ".": 8, ",": 4, "%": 3 },
-  8: { "-": -1, "+": -1, "0123456789": 9, ".": -1, ",": -1, "%": -1 },
-  9: { "-": -1, "+": -1, "0123456789": 9, ".": -1, ",": -1, "%": 3 },
-  "-1": { "-": -1, "+": -1, "0123456789": -1, ".": -1, ",": -1, "%": -1 }
-};
-const estadosAceptacionPorcentaje = [3];
-
-const tablaDinero = {
-  0: { "$": 1, "0123456789": -1, ".": -1, ",": -1 },
-  1: { "$": -1, "0123456789": 2, ".": -1, ",": -1 },
-  2: { "$": -1, "0123456789": 2, ".": 3, ",": 5 },
-  3: { "$": -1, "0123456789": 4, ".": -1, ",": -1 },
-  4: { "$": -1, "0123456789": 4, ".": -1, ",": -1 },
-  5: { "$": -1, "0123456789": 6, ".": -1, ",": -1 },
-  6: { "$": -1, "0123456789": 7, ".": -1, ",": -1 },
-  7: { "$": -1, "0123456789": 8, ".": -1, ",": -1 },
-  8: { "$": -1, "0123456789": -1, ".": 3, ",": 5 },
-  "-1": { "$": -1, "0123456789": -1, ".": -1, ",": -1 }
-};
-const estadosAceptacionDinero = [2, 4, 8];
-
-function ejecutarAFD(matriz, estadosAceptacion, cadenaEntrada) {
-  let estado = 0;
-  for (let i = 0; i < cadenaEntrada.length; i++) {
-    const fila = matriz[estado] || matriz["-1"];
-    const clave = Object.keys(fila).find(k => k.includes(cadenaEntrada[i]));
-    estado = fila[clave] ?? -1;
-  }
-  return estadosAceptacion.includes(estado);
-}
-
-const automatas = [
-  { tipo: "Valor monetario", matriz: tablaDinero, estados: estadosAceptacionDinero },
-  { tipo: "Porcentaje", matriz: tablaPorcentaje, estados: estadosAceptacionPorcentaje },
-  { tipo: "Real", matriz: tablaReales, estados: estadosAceptacionReales },
-  { tipo: "Natural", matriz: tablaNaturales, estados: estadosAceptacionNaturales }
-];
-
-function clasificarToken(str) {
-  const aut = automatas.find(a => ejecutarAFD(a.matriz, a.estados, str));
-  return aut?.tipo ?? null;
-}
-
-function esEspacioBlanco(c) {
-  return c === " " || c === "\t" || c === "\n" || c === "\r";
-}
-
-function tieneDigito(str) {
-  return Array.from(str).some(c => c >= "0" && c <= "9");
-}
-
-input.addEventListener("input", function () {
-  characterCount.textContent = input.value.length;
-});
-
-function obtenerNumeroLinea(texto, indice, areaTexto) {
-  const estilo = getComputedStyle(areaTexto);
-  const espejo = document.createElement("div");
-  [
-    "font", "lineHeight", "letterSpacing", "wordSpacing",
-    "textAlign", "textIndent", "textTransform",
-    "paddingTop", "paddingRight", "paddingBottom",
-    "paddingLeft", "tabSize", "direction", "boxSizing"
-  ].forEach(function (prop) {
-    espejo.style[prop] = estilo[prop];
-  });
-
-  espejo.style.position = "fixed";
-  espejo.style.visibility = "hidden";
-  espejo.style.left = "-10000px";
-  espejo.style.top = "0";
-  espejo.style.width = areaTexto.clientWidth + "px";
-  espejo.style.height = "auto";
-  espejo.style.border = "0";
-  espejo.style.whiteSpace = "pre-wrap";
-  espejo.style.overflowWrap = "break-word";
-  espejo.style.wordBreak = estilo.wordBreak;
-
-  espejo.appendChild(document.createTextNode(texto.slice(0, indice)));
-
-  const marca = document.createElement("span");
-  marca.textContent = "\u200B";
-  espejo.appendChild(marca);
-
-  document.body.appendChild(espejo);
-
-  const posicion = marca.getBoundingClientRect();
-  const posicionInicial = espejo.getBoundingClientRect();
-
-  const altura = parseFloat(estilo.lineHeight) || (parseFloat(estilo.fontSize) * 1.2);
-  const linea = Math.round((posicion.top - posicionInicial.top) / altura);
-  espejo.remove();
-  return linea;
-}
-
-function analizarTexto(texto) {
-  const encontrados = [];
-  let i = 0;
-  const n = texto.length;
-
-  while (i < n) {
-    while (i < n && esEspacioBlanco(texto[i])) {
-      i++;
-    }
-
-    let inicioIdx = i;
-    while (i < n && !esEspacioBlanco(texto[i])) {
-      i++;
-    }
-    let finIdx = i;
-    let token = texto.slice(inicioIdx, finIdx);
-
-    while (token.length > 0 && (token[0] === "(" || token[0] === '"' || token[0] === "'")) {
-      token = token.slice(1);
-      inicioIdx++;
-    }
-
-    while (token.length > 0 && (token[token.length - 1] === ")" || token[token.length - 1] === '"' || token[token.length - 1] === "'")) {
-      token = token.slice(0, -1);
-      finIdx--;
-    }
-
-    while (token.length > 1 && (token[token.length - 1] === "." || token[token.length - 1] === ",")) {
-      token = token.slice(0, -1);
-      finIdx--;
-    }
-
-    while (token.length > 0 && token[token.length - 1] === " ") {
-      token = token.slice(0, -1);
-      finIdx--;
-    }
-
-    const tipo = tieneDigito(token) ? clasificarToken(token) : null;
-    tipo && encontrados.push({
-      start: inicioIdx,
-      end: finIdx,
-      text: token,
-      type: tipo,
-      line: obtenerNumeroLinea(texto, inicioIdx, input)
-    });
-  }
-
-  return encontrados;
-}
-
-function mostrarResultados(coincidencias) {
-  resultsBody.innerHTML = "";
-
-  if (coincidencias.length === 0) {
-    const fila = document.createElement("tr");
-    const celda = document.createElement("td");
-    celda.colSpan = 4;
-    celda.textContent = "No se encontraron números.";
-    fila.appendChild(celda);
-    resultsBody.appendChild(fila);
-    matchCount.textContent = "0 coincidencias";
-    results.hidden = false;
-    return;
-  }
-
-  coincidencias.forEach(function (elemento, indice) {
-    const fila = document.createElement("tr");
-
-    [indice + 1, elemento.line, elemento.text, elemento.type].forEach(function (valor) {
-      const celda = document.createElement("td");
-      celda.textContent = valor;
-      fila.appendChild(celda);
-    });
-
-    resultsBody.appendChild(fila);
-  });
-
-  const sufijo = coincidencias.length === 1 ? " coincidencia" : " coincidencias";
-  matchCount.textContent = coincidencias.length + sufijo;
-  results.hidden = false;
-}
-
-document.getElementById("verify-button").addEventListener("click", function () {
-  const texto = input.value.trim();
-
-  if (texto === "") {
-    status.textContent = "Escribe un texto antes de verificar.";
-    results.hidden = true;
-    return;
-  }
-
-  status.textContent = "Texto analizado correctamente.";
-  const coincidencias = analizarTexto(texto);
-  mostrarResultados(coincidencias);
-});
-
-document.getElementById("clear-button").addEventListener("click", function () {
-  input.value = "";
-  characterCount.textContent = "0";
-  status.textContent = "Esperando texto para analizar.";
-  resultsBody.innerHTML = "";
-  matchCount.textContent = "0 coincidencias";
-  results.hidden = true;
-  input.focus();
-});
-
-// CÓDIGO NUEVO: Parser EXAR (autómata de pila)
 const letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 const tablaIdentificador = {
@@ -261,28 +18,121 @@ const tablaConstante = {
 };
 const estadosAceptacionConstante = [1, 3, 5];
 
-const mensajesError = {
-  101: "Símbolo desconocido",
-  102: "Elemento inválido",
-  201: "Falta delimitador",
-  202: "Falta operador",
-  203: "Falta identificador / constante"
+const ESTADO_ACEPTACION = 2;
+const ESTADOS_ACEPTACION = [1, ESTADO_ACEPTACION];
+
+const ESTADOS_ERROR = {
+  E101: { tipo: 1, codigo: 101, significado: "Símbolo desconocido." },
+  E102: { tipo: 1, codigo: 102, significado: "Elemento inválido." },
+  E201: { tipo: 2, codigo: 201, significado: "Falta delimitador." },
+  E202: { tipo: 2, codigo: 202, significado: "Falta operador." },
+  E203: { tipo: 2, codigo: 203, significado: "Falta identificador / constante." }
+};
+
+const matrizEstadosAP = {
+  0: [
+    { caracter: "ID",          quitar: "", insertar: "",  siguiente: 1 },
+    { caracter: "CONST",       quitar: "", insertar: "",  siguiente: 1 },
+    { caracter: "(",           quitar: "", insertar: "(", siguiente: 0 },
+    { caracter: "OPERADOR",    quitar: "", insertar: "",  siguiente: "E203" },
+    { caracter: ")",           quitar: "", insertar: "",  siguiente: "E203" },
+    { caracter: ";",           quitar: "", insertar: "",  siguiente: "E203" },
+    { caracter: "DESCONOCIDO", quitar: "", insertar: "",  siguiente: "E101" },
+    { caracter: "INVALIDO",    quitar: "", insertar: "",  siguiente: "E102" }
+  ],
+  1: [
+    { caracter: "OPERADOR",    quitar: "",  insertar: "", siguiente: 0 },
+    { caracter: ")",           quitar: "(", insertar: "", siguiente: 1 },
+    { caracter: ";",           quitar: "",  insertar: "", siguiente: ESTADO_ACEPTACION },
+    { caracter: "ID",          quitar: "",  insertar: "", siguiente: "E202" },
+    { caracter: "CONST",       quitar: "",  insertar: "", siguiente: "E202" },
+    { caracter: "(",           quitar: "",  insertar: "", siguiente: "E202" },
+    { caracter: "DESCONOCIDO", quitar: "",  insertar: "", siguiente: "E101" },
+    { caracter: "INVALIDO",    quitar: "",  insertar: "", siguiente: "E102" }
+  ],
+  2: [
+    { caracter: "DESCONOCIDO", quitar: "", insertar: "", siguiente: "E101" },
+    { caracter: "INVALIDO",    quitar: "", insertar: "", siguiente: "E102" },
+    { caracter: "*",           quitar: "", insertar: "", siguiente: "E201" }
+  ],
+  E101: [{ caracter: "*", quitar: "", insertar: "", siguiente: "E101" }],
+  E102: [{ caracter: "*", quitar: "", insertar: "", siguiente: "E102" }],
+  E201: [{ caracter: "*", quitar: "", insertar: "", siguiente: "E201" }],
+  E202: [{ caracter: "*", quitar: "", insertar: "", siguiente: "E202" }],
+  E203: [{ caracter: "*", quitar: "", insertar: "", siguiente: "E203" }]
 };
 
 const parserInput = document.getElementById("parser-input");
 const parserMensaje = document.getElementById("parser-mensaje");
+const parserResultados = document.getElementById("parser-resultados");
 
-function crearError(codigo, linea) {
-  const numeroLinea = String(linea).padStart(2, "0");
-  if (codigo < 200) {
-    return "1:" + codigo + " Error en Línea " + numeroLinea + ": " + mensajesError[codigo] + ".";
+document.getElementById("parser-button").addEventListener("click", function () {
+  if (parserInput.value.trim() === "") {
+    parserMensaje.textContent = "Escribe una expresión antes de analizar.";
+    parserMensaje.style.color = "black";
+    parserResultados.innerHTML = "";
+    return;
   }
-  return "2:" + codigo + " Error Línea " + numeroLinea + ". " + mensajesError[codigo] + ".";
+
+  const expresiones = moduloEntrada();
+  const resultados = moduloAnalisis(expresiones);
+  mostrarResultadosEnPantalla(resultados);
+});
+
+function moduloEntrada() {
+  const texto = parserInput.value;
+  const expresiones = [];
+  const lineas = texto.split(/\r?\n/);
+
+  lineas.forEach((contenidoLinea, indiceLinea) => {
+    const numeroLinea = indiceLinea + 1;
+    let actual = "";
+
+    for (let i = 0; i < contenidoLinea.length; i++) {
+      const c = contenidoLinea[i];
+      if (actual === "" && (c === " " || c === "\t")) {
+        continue;
+      }
+
+      if (c === " " || c === "\t") {
+        if (actual.trim() !== "") {
+          expresiones.push({ texto: actual.trim(), lineaInicio: numeroLinea });
+        }
+        actual = "";
+        continue;
+      }
+
+      actual += c;
+
+      if (c === ";") {
+        expresiones.push({ texto: actual, lineaInicio: numeroLinea });
+        actual = "";
+      }
+    }
+
+    if (actual.trim() !== "") {
+      expresiones.push({ texto: actual, lineaInicio: numeroLinea });
+    }
+  });
+
+  return expresiones;
 }
 
-function obtenerTokens(texto) {
+function moduloAnalisis(expresiones) {
+  return expresiones.map((exp, idx) => {
+    const tokens = obtenerTokens(exp.texto, exp.lineaInicio);
+    const resultadoAP = ejecutarAutomataPila(tokens, exp.lineaInicio);
+
+    if (resultadoAP.ok) {
+      return moduloResultados(idx + 1, exp.texto);
+    }
+    return moduloErrores(idx + 1, exp.texto, resultadoAP.estadoError, resultadoAP.linea);
+  });
+}
+
+function obtenerTokens(texto, lineaInicial) {
   const tokens = [];
-  let linea = 1;
+  let linea = lineaInicial;
   let i = 0;
 
   while (i < texto.length) {
@@ -294,16 +144,10 @@ function obtenerTokens(texto) {
     } else if (c === " " || c === "\t" || c === "\r") {
       i++;
     } else if ("+-*/".includes(c)) {
-      tokens.push({ texto: c, tipo: "operador", linea: linea });
+      tokens.push({ caracter: "OPERADOR", texto: c, linea: linea });
       i++;
-    } else if (c === "(") {
-      tokens.push({ texto: c, tipo: "abre", linea: linea });
-      i++;
-    } else if (c === ")") {
-      tokens.push({ texto: c, tipo: "cierra", linea: linea });
-      i++;
-    } else if (c === ";") {
-      tokens.push({ texto: c, tipo: "fin", linea: linea });
+    } else if (c === "(" || c === ")" || c === ";") {
+      tokens.push({ caracter: c, texto: c, linea: linea });
       i++;
     } else if (/[A-Za-z0-9.]/.test(c)) {
       let palabra = "";
@@ -312,106 +156,134 @@ function obtenerTokens(texto) {
         i++;
       }
       if (ejecutarAFD(tablaIdentificador, estadosAceptacionIdentificador, palabra)) {
-        tokens.push({ texto: palabra, tipo: "identificador", linea: linea });
+        tokens.push({ caracter: "ID", texto: palabra, linea: linea });
       } else if (ejecutarAFD(tablaConstante, estadosAceptacionConstante, palabra)) {
-        tokens.push({ texto: palabra, tipo: "constante", linea: linea });
+        tokens.push({ caracter: "CONST", texto: palabra, linea: linea });
       } else {
-        return { error: crearError(102, linea) };
+        tokens.push({ caracter: "INVALIDO", texto: palabra, linea: linea });
       }
     } else {
-      return { error: crearError(101, linea) };
+      tokens.push({ caracter: "DESCONOCIDO", texto: c, linea: linea });
+      i++;
     }
   }
 
-  return { tokens: tokens };
+  return tokens;
 }
 
-function analizarSintaxis(tokens) {
+function ejecutarAFD(matriz, estadosAceptacion, cadenaEntrada) {
+  let estado = 0;
+  for (let i = 0; i < cadenaEntrada.length; i++) {
+    const fila = matriz[estado] || matriz["-1"];
+    const clave = Object.keys(fila).find(k => k.includes(cadenaEntrada[i]));
+    estado = fila[clave] ?? -1;
+  }
+  return estadosAceptacion.includes(estado);
+}
+
+function ejecutarAutomataPila(tokens, lineaFinal) {
+  let estado = 0;
   const pila = [];
-  let esperaOperando = true;
+  let lineaError = null;
 
-  for (const t of tokens) {
-    if (esperaOperando) {
-      if (t.tipo === "identificador" || t.tipo === "constante") {
-        esperaOperando = false;
-      } else if (t.tipo === "abre") {
-        pila.push("(");
-      } else {
-        return crearError(203, t.linea);
+  for (const token of tokens) {
+    const transicion = buscarTransicion(estado, token.caracter);
+    if (!transicion) {
+      if (lineaError === null) lineaError = token.linea;
+      estado = "E201";
+      continue;
+    }
+
+    if (transicion.quitar !== "") {
+      if (pila.length === 0 || pila[pila.length - 1] !== transicion.quitar) {
+        if (lineaError === null) lineaError = token.linea;
+        estado = "E201";
+        continue;
       }
+      pila.pop();
+    }
+
+    if (transicion.insertar !== "") {
+      pila.push(transicion.insertar);
+    }
+
+    const estadoAnterior = estado;
+    estado = transicion.siguiente;
+
+    if (ESTADOS_ERROR[estado] && !ESTADOS_ERROR[estadoAnterior]) {
+      lineaError = token.linea;
+    }
+  }
+
+  if (ESTADOS_ACEPTACION.includes(estado) && pila.length === 0) {
+    return { ok: true };
+  }
+
+  if (!ESTADOS_ERROR[estado]) {
+    const ultimo = tokens[tokens.length - 1];
+    lineaError = ultimo ? ultimo.linea : lineaFinal;
+    if (ESTADOS_ACEPTACION.includes(estado) && pila.length > 0) {
+      estado = "E201";
     } else {
-      if (t.tipo === "operador") {
-        esperaOperando = true;
-      } else if (t.tipo === "cierra") {
-        if (pila.length === 0) {
-          return crearError(201, t.linea);
-        }
-        pila.pop();
-      } else if (t.tipo === "fin") {
-        if (pila.length > 0) {
-          return crearError(201, t.linea);
-        }
-        esperaOperando = true;
-      } else {
-        return crearError(202, t.linea);
-      }
+      estado = estado === 0 ? "E203" : "E201";
     }
   }
 
-  const ultimo = tokens[tokens.length - 1];
-  if (ultimo.tipo !== "fin") {
-    if (esperaOperando) {
-      return crearError(203, ultimo.linea);
-    }
-    return crearError(201, ultimo.linea);
-  }
-
-  return null;
+  return { ok: false, estadoError: estado, linea: lineaError };
 }
 
-function moduloEntrada() {
-  return parserInput.value;
+function buscarTransicion(estado, caracterToken) {
+  const transiciones = matrizEstadosAP[estado] || [];
+  return transiciones.find(t => t.caracter === caracterToken || t.caracter === "*");
 }
 
-function moduloAnalisis(texto) {
-  const resultado = obtenerTokens(texto);
-  if (resultado.error) {
-    return resultado.error;
-  }
-  return analizarSintaxis(resultado.tokens);
+function moduloResultados(indice, expresionTexto) {
+  return {
+    indice: indice,
+    expresion: expresionTexto,
+    ok: true,
+    mensaje: "1:100 Sin error. | 2:200 Sin error."
+  };
 }
 
-function moduloResultados() {
-  parserMensaje.textContent = "1:100 Sin error.";
-  parserMensaje.style.color = "green";
+function moduloErrores(indice, expresionTexto, estadoError, linea) {
+  const info = ESTADOS_ERROR[estadoError];
+  const numeroLinea = String(linea).padStart(2, "0");
+  const mensaje = info.tipo === 1
+    ? `1:${info.codigo} Error en Línea ${numeroLinea}: ${info.significado}`
+    : `2:${info.codigo} Error Línea ${numeroLinea}. ${info.significado}`;
+
+  return {
+    indice: indice,
+    expresion: expresionTexto,
+    ok: false,
+    mensaje: mensaje
+  };
 }
 
-function moduloErrores(mensaje) {
-  parserMensaje.textContent = mensaje;
-  parserMensaje.style.color = "red";
-}
+function mostrarResultadosEnPantalla(resultados) {
+  parserResultados.innerHTML = "";
+  const errores = resultados.filter(r => !r.ok);
 
-document.getElementById("parser-button").addEventListener("click", function () {
-  const texto = moduloEntrada();
-
-  if (texto.trim() === "") {
-    parserMensaje.textContent = "Escribe una expresión antes de analizar.";
-    parserMensaje.style.color = "black";
+  if (errores.length === 0) {
+    parserMensaje.textContent = "1:100 Sin error. | 2:200 Sin error.";
+    parserMensaje.style.color = "green";
     return;
   }
 
-  const error = moduloAnalisis(texto);
-
-  if (error === null) {
-    moduloResultados();
-  } else {
-    moduloErrores(error);
-  }
-});
+  parserMensaje.textContent = "";
+  errores.forEach(res => {
+    const item = document.createElement("div");
+    item.className = "resultado-item error";
+    item.textContent = `${res.expresion.trim()} → ${res.mensaje}`;
+    parserResultados.appendChild(item);
+  });
+}
 
 document.getElementById("parser-clear").addEventListener("click", function () {
   parserInput.value = "";
   parserMensaje.textContent = "Esperando expresiones para analizar.";
   parserMensaje.style.color = "black";
+  parserResultados.innerHTML = "";
   parserInput.focus();
 });
